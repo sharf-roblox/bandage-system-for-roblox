@@ -1,0 +1,98 @@
+In the starter pack section, create an object named bandage, then add a regular script to this bandage and paste the following :
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local BandageEvent = ReplicatedStorage:WaitForChild("BandageEvent")
+
+-- Переменные для управления прогрессом
+local isUsing = false
+local progress = 0
+local useTime = 3 -- Время использования бинта (3 секунды)
+
+-- Создание GUI для прогресс-бара
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BandageProgressGui"
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Enabled = false
+ScreenGui.IgnoreGuiInset = true
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0.2, 0, 0.03, 0) -- Ширина 20% экрана, высота 3%
+Frame.Position = UDim2.new(0.4, 0, 0.85, 0) -- Позиция внизу экрана (85% от верха)
+Frame.AnchorPoint = Vector2.new(0, 0.5)
+Frame.BackgroundTransparency = 0.7
+Frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+Frame.BorderSizePixel = 0
+Frame.Parent = ScreenGui
+
+local ProgressBar = Instance.new("Frame")
+ProgressBar.Size = UDim2.new(0, 0, 1, 0)
+ProgressBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+ProgressBar.BorderSizePixel = 0
+ProgressBar.Parent = Frame
+
+local ProgressLabel = Instance.new("TextLabel")
+ProgressLabel.Size = UDim2.new(1, 0, 1, 0)
+ProgressLabel.BackgroundTransparency = 1
+ProgressLabel.Text = "0%"
+ProgressLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+ProgressLabel.TextScaled = true
+ProgressLabel.Font = Enum.Font.SourceSansBold
+ProgressLabel.Parent = Frame
+
+-- Функция обновления прогресс-бара
+local function updateProgress(deltaTime)
+	if not isUsing then return end
+	progress = progress + deltaTime / useTime
+	if progress >= 1 then
+		progress = 1
+		isUsing = false
+		BandageEvent:FireServer()
+		ScreenGui.Enabled = false
+	end
+	ProgressBar.Size = UDim2.new(progress, 0, 1, 0)
+	ProgressLabel.Text = string.format("%.1f%%", progress * 100)
+end
+
+-- Обработка активации бинта
+local tool = script.Parent
+tool.Activated:Connect(function()
+	if isUsing then return end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 or humanoid.Health >= humanoid.MaxHealth then return end
+	isUsing = true
+	progress = 0
+	ScreenGui.Enabled = true
+	ProgressBar.Size = UDim2.new(0, 0, 1, 0)
+	ProgressLabel.Text = "0%"
+end)
+
+-- Обработка отпускания ЛКМ
+tool.Deactivated:Connect(function()
+	isUsing = false
+	ScreenGui.Enabled = false
+end)
+
+-- Обработка экипировки/снятия бинта
+tool.Equipped:Connect(function()
+	ScreenGui.Enabled = false
+end)
+
+tool.Unequipped:Connect(function()
+	isUsing = false
+	ScreenGui.Enabled = false
+end)
+
+-- Обновление прогресса
+RunService.Heartbeat:Connect(updateProgress)
+
+-- Сброс при смерти персонажа
+player.CharacterAdded:Connect(function()
+	isUsing = false
+	ScreenGui.Enabled = false
+end)
